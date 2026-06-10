@@ -1,6 +1,18 @@
 # Hybrid Movie Recommendation System
 
-This project is an MVP implementation of a MovieLens recommendation system that combines collaborative filtering and content features. It supports data preparation, feature engineering, six recommenders, Top-N evaluation, cold-start recommendation, explanation text, and a Streamlit demo.
+This project is a data mining final project built around a MovieLens Top-N recommendation task. It combines user rating behavior with movie content features, then evaluates the accuracy, coverage, diversity, popularity bias, cold-start behavior, and explainability of several recommendation strategies.
+
+The project is positioned as an end-to-end applied data mining workflow rather than a single recommender implementation. The formal research question is:
+
+> Can a hybrid recommender that combines collaborative filtering, content similarity, and popularity signals achieve a better trade-off between recommendation accuracy, catalog coverage, diversity, and cold-start usability?
+
+## Research Questions
+
+- RQ1: How do popularity, user-based CF, item-based CF, matrix factorization, content-based, and hybrid recommenders compare on Top-N movie recommendation?
+- RQ2: Does adding content information improve the accuracy-diversity-coverage trade-off?
+- RQ3: Which models are more robust for low-, medium-, and high-activity users?
+- RQ4: Do higher-scoring recommenders also show stronger popularity bias?
+- RQ5: Can recommendation reasons make the demo easier to understand and defend in presentation?
 
 ## Project Structure
 
@@ -106,9 +118,38 @@ reports/user_segment_results.csv
 reports/user_segment_results.md
 reports/popularity_bias.csv
 reports/popularity_bias.md
+reports/significance_results.csv
+reports/significance_results.md
 reports/experiment_summary.md
 reports/sample_recommendations.csv
 reports/cold_start_recommendations.csv
+```
+
+## Formal Experiment Suite
+
+Use this command for the final report and presentation artifacts:
+
+```powershell
+python scripts/run_formal_experiment.py --data-dir data/raw/ml-latest-small --k 10 --max-eval-users 300 --min-user-ratings 5 --min-movie-ratings 5 --cv-folds 3
+```
+
+If you are using the built-in smoke-test sample:
+
+```powershell
+python scripts/run_formal_experiment.py --sample --k 5 --max-eval-users 20 --cv-folds 3
+```
+
+The formal experiment suite writes:
+
+```text
+reports/data_profile.csv / .md              dataset scale and feature profile
+reports/model_comparison.csv / .md          main Top-N model comparison
+reports/ablation_results.csv / .md          CF/content/popularity contribution analysis
+reports/user_segment_results.csv / .md      low-, medium-, high-activity user analysis
+reports/popularity_bias.csv / .md           popularity-bias diagnostics
+reports/significance_results.csv / .md      paired per-user NDCG@K significance tests
+reports/cross_validation_results.csv / .md  k-fold stability check
+reports/formal_experiment_summary.md        report-ready experiment summary
 ```
 
 ## Run Streamlit Demo
@@ -121,7 +162,7 @@ The app includes:
 
 - Existing user recommendation with selectable model and recommendation reasons.
 - Cold-start recommendation based on preferred genres, favorite movies, and keywords.
-- Model comparison, ablation, user-segment, popularity-bias, and summary views after running the pipeline.
+- Model comparison, data profile, ablation, user-segment, popularity-bias, significance-test, cross-validation, and summary views after running the formal experiment suite.
 
 ## Iteration Analysis Outputs
 
@@ -130,6 +171,8 @@ The current P1 iteration adds reproducible experiment diagnostics:
 - `ablation_results`: compares popularity-only, collaborative-only, content-only, and hybrid variants.
 - `user_segment_results`: compares model behavior for low, medium, and high activity users.
 - `popularity_bias`: measures average recommended item popularity and popular-item ratio.
+- `significance_results`: compares pairwise per-user NDCG@K differences with a Wilcoxon signed-rank test.
+- `cross_validation_results`: reports k-fold means and standard deviations for core metrics.
 - `experiment_summary`: generates a short Markdown summary of best models and trade-offs.
 
 Quick command:

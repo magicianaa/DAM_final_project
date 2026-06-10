@@ -14,7 +14,7 @@ def plot_metric_comparison(results: pd.DataFrame, output_path: str | Path) -> Pa
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if results.empty:
         return output_path
-    metrics = ["precision_at_k", "recall_at_k", "ndcg_at_k", "hit_rate_at_k", "coverage", "diversity"]
+    metrics = ["precision_at_k", "recall_at_k", "ndcg_at_k", "hit_rate_at_k", "map_at_k", "mrr_at_k", "coverage", "diversity"]
     ax = results.set_index("model")[metrics].plot(kind="bar", figsize=(11, 5))
     ax.set_ylabel("score")
     ax.set_title("Recommendation Model Comparison")

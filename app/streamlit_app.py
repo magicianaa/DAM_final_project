@@ -46,6 +46,7 @@ def load_demo(
 
 
 st.title("Hybrid Movie Recommendation System")
+st.caption("融合协同过滤与内容特征的混合电影推荐系统 — 数据挖掘期末项目")
 
 with st.sidebar:
     st.header("Data")
@@ -96,6 +97,19 @@ if page == "Existing user":
         st.subheader("Recommendations")
         st.dataframe(recs[["title", "genres", "score", "reason"]], use_container_width=True, hide_index=True)
 
+        # Genre distribution of recommendations
+        all_genres = []
+        for g in recs["genres"].dropna():
+            all_genres.extend(str(g).split("|"))
+        if all_genres:
+            import collections
+            genre_counts = collections.Counter(all_genres)
+            st.subheader("Genre distribution of recommendations")
+            st.bar_chart(
+                pd.DataFrame({"count": genre_counts}).sort_values("count", ascending=True),
+                use_container_width=True,
+            )
+
 elif page == "Cold start":
     genres = available_genres(features)
     selected_genres = st.multiselect("Preferred genres", genres, default=genres[:2])
@@ -111,7 +125,16 @@ elif page == "Cold start":
 
 else:
     st.subheader("Experiment results")
-    tabs = st.tabs(["Models", "Ablation", "User segments", "Popularity bias", "Summary"])
+    tabs = st.tabs([
+        "Data profile",
+        "Models",
+        "Ablation",
+        "User segments",
+        "Popularity bias",
+        "Significance",
+        "Cross validation",
+        "Summary",
+    ])
 
     def show_report_table(path: Path, chart_index: str | None = None):
         if not path.exists():
@@ -129,16 +152,34 @@ else:
                     st.bar_chart(chart_df)
 
     with tabs[0]:
-        show_report_table(PROJECT_ROOT / "reports/model_comparison.csv", chart_index="model")
+        show_report_table(PROJECT_ROOT / "reports/data_profile.csv")
     with tabs[1]:
-        show_report_table(PROJECT_ROOT / "reports/ablation_results.csv", chart_index="ablation_setting")
+        show_report_table(PROJECT_ROOT / "reports/model_comparison.csv", chart_index="model")
+        # Add a dedicated metrics comparison chart
+        model_path = PROJECT_ROOT / "reports/model_comparison.csv"
+        if model_path.exists():
+            df = pd.read_csv(model_path)
+            metric_cols = [c for c in df.columns if c.endswith("_at_k") or c in {"coverage", "diversity"}]
+            if metric_cols:
+                st.subheader("Metrics Comparison")
+                metrics_df = df.set_index("model")[metric_cols]
+                st.bar_chart(metrics_df.T, use_container_width=True)
     with tabs[2]:
-        show_report_table(PROJECT_ROOT / "reports/user_segment_results.csv")
+        show_report_table(PROJECT_ROOT / "reports/ablation_results.csv", chart_index="ablation_setting")
     with tabs[3]:
-        show_report_table(PROJECT_ROOT / "reports/popularity_bias.csv", chart_index="model")
+        show_report_table(PROJECT_ROOT / "reports/user_segment_results.csv")
     with tabs[4]:
-        summary_path = PROJECT_ROOT / "reports/experiment_summary.md"
+        show_report_table(PROJECT_ROOT / "reports/popularity_bias.csv", chart_index="model")
+    with tabs[5]:
+        show_report_table(PROJECT_ROOT / "reports/significance_results.csv")
+    with tabs[6]:
+        show_report_table(PROJECT_ROOT / "reports/cross_validation_results.csv", chart_index="model")
+    with tabs[7]:
+        summary_path = PROJECT_ROOT / "reports/formal_experiment_summary.md"
+        fallback_summary_path = PROJECT_ROOT / "reports/experiment_summary.md"
         if summary_path.exists():
             st.markdown(summary_path.read_text(encoding="utf-8"))
+        elif fallback_summary_path.exists():
+            st.markdown(fallback_summary_path.read_text(encoding="utf-8"))
         else:
             st.info("Run the pipeline first to generate experiment_summary.md.")

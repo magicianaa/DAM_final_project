@@ -16,6 +16,8 @@ class FeatureStore:
     rating_matrix: pd.DataFrame
     genre_features: pd.DataFrame
     tag_features: pd.DataFrame
+    year_features: pd.DataFrame
+    genre_diversity_features: pd.DataFrame
     content_features: pd.DataFrame
     popularity: pd.DataFrame
 
@@ -59,11 +61,48 @@ def build_popularity_features(ratings: pd.DataFrame, movies: pd.DataFrame) -> pd
     return stats.set_index("movieId")
 
 
+def build_year_features(movies: pd.DataFrame) -> pd.DataFrame:
+    year_series = movies.set_index("movieId")["year"].dropna().astype(int)
+    if year_series.empty:
+        return pd.DataFrame(index=movies["movieId"])
+
+    decade = (year_series // 10) * 10
+    decade_dummies = pd.get_dummies(decade.astype(str) + "s").astype(float)
+    decade_dummies.columns = [f"decade__{c}" for c in decade_dummies.columns]
+
+    current_year = year_series.max()
+    recency = (year_series - year_series.min()) / max(current_year - year_series.min(), 1)
+    recency_df = pd.DataFrame({"recency_score": recency})
+
+    result = pd.concat([decade_dummies, recency_df], axis=1).reindex(movies["movieId"]).fillna(0.0)
+    result.index.name = "movieId"
+    return result
+
+
+def build_genre_diversity_features(movies: pd.DataFrame) -> pd.DataFrame:
+    genre_lists = (
+        movies["genres"]
+        .fillna("")
+        .apply(lambda x: [g for g in x.split("|") if g and g != "(no genres listed)"])
+    )
+    genre_count = genre_lists.apply(len).to_numpy()
+    diversity_df = pd.DataFrame(
+        {"genre_count": genre_count},
+        index=movies["movieId"].to_numpy(),
+    )
+    diversity_df.index.name = "movieId"
+    return diversity_df.reindex(movies["movieId"]).fillna(0)
+
+
 def build_feature_store(movies: pd.DataFrame, ratings: pd.DataFrame, tags: pd.DataFrame, tag_max_features: int = 300) -> FeatureStore:
     rating_matrix = build_rating_matrix(ratings)
     genre_features = build_genre_features(movies)
     tag_features = build_tag_features(movies, tags, max_features=tag_max_features)
-    content_features = pd.concat([genre_features, tag_features], axis=1).fillna(0.0)
+    year_features = build_year_features(movies)
+    genre_diversity_features = build_genre_diversity_features(movies)
+    content_features = pd.concat(
+        [genre_features, tag_features, year_features, genre_diversity_features], axis=1
+    ).fillna(0.0)
     popularity = build_popularity_features(ratings, movies)
     merged_movies = movies.merge(tags, on="movieId", how="left")
     merged_movies["tag_text"] = merged_movies["tag_text"].fillna("")
@@ -74,6 +113,8 @@ def build_feature_store(movies: pd.DataFrame, ratings: pd.DataFrame, tags: pd.Da
         rating_matrix=rating_matrix,
         genre_features=genre_features,
         tag_features=tag_features,
+        year_features=year_features,
+        genre_diversity_features=genre_diversity_features,
         content_features=content_features,
         popularity=popularity,
     )

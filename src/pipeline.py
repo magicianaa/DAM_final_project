@@ -14,6 +14,7 @@ from src.evaluation.ablation import run_ablation_experiments
 from src.evaluation.diagnostics import popularity_bias_report
 from src.evaluation.evaluate import evaluate_models
 from src.evaluation.segments import evaluate_user_segments
+from src.evaluation.significance import model_significance_report
 from src.models import build_default_models
 from src.models.cold_start import recommend_for_new_user
 from src.visualization.explain_recommendation import explain_recommendations
@@ -29,6 +30,7 @@ class PipelineResult:
     ablation: pd.DataFrame
     user_segments: pd.DataFrame
     popularity_bias: pd.DataFrame
+    significance: pd.DataFrame
     sample_recommendations: pd.DataFrame
     cold_start_recommendations: pd.DataFrame
 
@@ -58,6 +60,11 @@ def prepare_features(
         max_movies=max_movies,
         max_matrix_cells=max_matrix_cells,
     )
+    if ratings.empty:
+        raise ValueError(
+            "No ratings remain after filtering. Lower --min-user-ratings/--min-movie-ratings "
+            "or increase the loaded dataset size."
+        )
     tags = clean_tags(raw.get("tags"))
     movies = movies[movies["movieId"].isin(ratings["movieId"].unique())].reset_index(drop=True)
     train_ratings, test_ratings = leave_one_out_split(ratings)
@@ -105,7 +112,8 @@ def run_pipeline(
     ablation = run_ablation_experiments(features, test_ratings, k=k, max_users=max_eval_users)
     user_segments = evaluate_user_segments(models, features, test_ratings, k=k, max_users_per_segment=max_eval_users)
     popularity_bias = popularity_bias_report(models, features, test_ratings, k=k, max_users=max_eval_users)
-    save_analysis_reports(evaluation, ablation, user_segments, popularity_bias)
+    significance = model_significance_report(models, features, test_ratings, k=k, max_users=max_eval_users)
+    save_analysis_reports(evaluation, ablation, user_segments, popularity_bias, significance)
 
     user_id = int(features.ratings["userId"].iloc[0])
     sample_recs = models["hybrid"].recommend(user_id, k=k)
@@ -116,7 +124,18 @@ def run_pipeline(
     cold_recs = recommend_for_new_user(features, genres=genres, liked_movie_ids=[], keywords="", k=k)
     cold_recs.to_csv(REPORTS_DIR / "cold_start_recommendations.csv", index=False, encoding="utf-8-sig")
     plot_metric_comparison(evaluation, REPORTS_DIR / "model_comparison.png")
-    return PipelineResult(features, test_ratings, models, evaluation, ablation, user_segments, popularity_bias, sample_recs, cold_recs)
+    return PipelineResult(
+        features,
+        test_ratings,
+        models,
+        evaluation,
+        ablation,
+        user_segments,
+        popularity_bias,
+        significance,
+        sample_recs,
+        cold_recs,
+    )
 
 
 def save_processed_artifacts(features: FeatureStore, test_ratings: pd.DataFrame) -> None:
@@ -139,11 +158,13 @@ def save_analysis_reports(
     ablation: pd.DataFrame,
     user_segments: pd.DataFrame,
     popularity_bias: pd.DataFrame,
+    significance: pd.DataFrame,
 ) -> None:
     save_report_table(ablation, "ablation_results")
     save_report_table(user_segments, "user_segment_results")
     save_report_table(popularity_bias, "popularity_bias")
-    write_experiment_summary(evaluation, ablation, user_segments, popularity_bias)
+    save_report_table(significance, "significance_results")
+    write_experiment_summary(evaluation, ablation, user_segments, popularity_bias, significance)
 
 
 def save_report_table(df: pd.DataFrame, stem: str) -> None:
@@ -158,15 +179,20 @@ def write_experiment_summary(
     ablation: pd.DataFrame,
     user_segments: pd.DataFrame,
     popularity_bias: pd.DataFrame,
+    significance: pd.DataFrame | None = None,
 ) -> None:
     lines = ["# Experiment Summary", ""]
     if not evaluation.empty:
         best = evaluation.sort_values("ndcg_at_k", ascending=False).iloc[0]
+        best_map = evaluation.sort_values("map_at_k", ascending=False).iloc[0]
+        best_mrr = evaluation.sort_values("mrr_at_k", ascending=False).iloc[0]
         coverage_best = evaluation.sort_values("coverage", ascending=False).iloc[0]
         diversity_best = evaluation.sort_values("diversity", ascending=False).iloc[0]
         lines.extend(
             [
                 f"- Best NDCG model: `{best['model']}` (NDCG@K={best['ndcg_at_k']:.4f}, Recall@K={best['recall_at_k']:.4f}).",
+                f"- Best MAP model: `{best_map['model']}` (MAP@K={best_map['map_at_k']:.4f}).",
+                f"- Best MRR model: `{best_mrr['model']}` (MRR@K={best_mrr['mrr_at_k']:.4f}).",
                 f"- Highest coverage model: `{coverage_best['model']}` (Coverage={coverage_best['coverage']:.4f}).",
                 f"- Highest diversity model: `{diversity_best['model']}` (Diversity={diversity_best['diversity']:.4f}).",
             ]
@@ -194,6 +220,16 @@ def write_experiment_summary(
             best_segment = group.sort_values("ndcg_at_k", ascending=False).iloc[0]
             segment_lines.append(f"`{segment}` -> `{best_segment['model']}`")
         lines.append("- Best model by user activity segment: " + ", ".join(segment_lines) + ".")
+    if significance is not None and not significance.empty:
+        significant_pairs = significance[significance["significant"] == True]
+        if not significant_pairs.empty:
+            best_pair = significant_pairs.sort_values("p_value", na_position="last").iloc[0]
+            lines.append(
+                f"- Strongest significant NDCG@K difference: `{best_pair['model_a']}` vs "
+                f"`{best_pair['model_b']}` (diff={best_pair['diff']:.4f}, p={best_pair['p_value']:.4g})."
+            )
+        else:
+            lines.append("- No pairwise NDCG@K difference reached p<0.05 in the current evaluation subset.")
     lines.append("")
     lines.append("These observations are generated automatically from the latest pipeline run and should be interpreted together with the full CSV/Markdown tables.")
     (REPORTS_DIR / "experiment_summary.md").write_text("\n".join(lines), encoding="utf-8")

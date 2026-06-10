@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import sys
 
+from src.config import configure_logging
 from src.pipeline import run_pipeline
 
 
@@ -20,6 +21,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-matrix-cells", type=int, default=25_000_000, help="Safety cap for dense user-movie matrix cells")
     parser.add_argument("--min-user-ratings", type=int, default=1)
     parser.add_argument("--min-movie-ratings", type=int, default=1)
+    parser.add_argument("--quiet", action="store_true", help="Suppress info-level logs")
     return parser.parse_args()
 
 
@@ -27,6 +29,8 @@ def main() -> None:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     args = parse_args()
+    log = configure_logging(level=20 if not args.quiet else 30)
+    log.info("Starting MovieLens recommendation pipeline")
     result = run_pipeline(
         data_dir=args.data_dir,
         download=args.download,
@@ -41,12 +45,10 @@ def main() -> None:
         max_movies=args.max_movies,
         max_matrix_cells=args.max_matrix_cells,
     )
-    print("Pipeline completed.")
-    print(f"Training ratings: {len(result.features.ratings):,}; movies: {result.features.movies['movieId'].nunique():,}; users: {result.features.ratings['userId'].nunique():,}")
-    print("Evaluation:")
-    print(result.evaluation.to_string(index=False))
-    print("\nSample hybrid recommendations:")
-    print(result.sample_recommendations[["title", "score", "reason"]].head(args.k).to_string(index=False))
+    log.info("Pipeline completed.")
+    log.info(f"Training ratings: {len(result.features.ratings):,}; movies: {result.features.movies['movieId'].nunique():,}; users: {result.features.ratings['userId'].nunique():,}")
+    log.info("Evaluation:\n%s", result.evaluation.to_string(index=False))
+    log.info("Sample hybrid recommendations:\n%s", result.sample_recommendations[["title", "score", "reason"]].head(args.k).to_string(index=False))
 
 
 if __name__ == "__main__":

@@ -10,4 +10,4 @@ This directory keeps project documents separate from source code and generated d
 
 ## Other Documents
 
-- `other/`: documents that are not part of the movie recommendation project, kept for reference without mixing them into the main project deliverables.
+- `other/`: historical or unrelated reference documents. For example, the air-quality plan is an expired topic proposal and is not part of the final movie recommendation deliverable.

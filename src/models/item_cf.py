@@ -10,9 +10,8 @@ from src.models.utils import normalize_scores
 class ItemBasedCFRecommender(BaseRecommender):
     name = "item_cf"
 
-    def __init__(self, n_similar: int = 40, min_positive_rating: float = 3.5) -> None:
+    def __init__(self, min_positive_rating: float = 3.5) -> None:
         super().__init__()
-        self.n_similar = n_similar
         self.min_positive_rating = min_positive_rating
         self.item_similarity: pd.DataFrame | None = None
 

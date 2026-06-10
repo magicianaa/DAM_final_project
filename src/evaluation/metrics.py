@@ -53,6 +53,48 @@ def diversity(recommended: list[int], features: FeatureStore) -> float:
     return float(1.0 - np.mean(pairs)) if len(pairs) else 0.0
 
 
+def average_precision_at_k(recommended: list[int], relevant: set[int], k: int) -> float:
+    if k == 0 or not relevant:
+        return 0.0
+    score = 0.0
+    hits = 0
+    for i, movie_id in enumerate(recommended[:k], start=1):
+        if movie_id in relevant:
+            hits += 1
+            score += hits / i
+    return score / min(len(relevant), k)
+
+
+def mean_average_precision_at_k(
+    all_recommendations: list[list[int]],
+    all_relevant: list[set[int]],
+    k: int,
+) -> float:
+    if not all_recommendations:
+        return 0.0
+    ap_scores = [
+        average_precision_at_k(recs, rel, k)
+        for recs, rel in zip(all_recommendations, all_relevant)
+    ]
+    return float(np.mean(ap_scores))
+
+
+def mean_reciprocal_rank(
+    all_recommendations: list[list[int]],
+    all_relevant: list[set[int]],
+    k: int,
+) -> float:
+    ranks = []
+    for recs, rel in zip(all_recommendations, all_relevant):
+        for rank, movie_id in enumerate(recs[:k], start=1):
+            if movie_id in rel:
+                ranks.append(1.0 / rank)
+                break
+        else:
+            ranks.append(0.0)
+    return float(np.mean(ranks))
+
+
 def relevant_by_user(test_ratings: pd.DataFrame, threshold: float = 4.0) -> dict[int, set[int]]:
     relevant = test_ratings[test_ratings["rating"] >= threshold]
     return relevant.groupby("userId")["movieId"].apply(lambda s: set(s.astype(int))).to_dict()

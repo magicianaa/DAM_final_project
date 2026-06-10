@@ -7,6 +7,8 @@ from src.evaluation.metrics import (
     coverage,
     diversity,
     hit_rate_at_k,
+    mean_average_precision_at_k,
+    mean_reciprocal_rank,
     ndcg_at_k,
     precision_at_k,
     recall_at_k,
@@ -31,11 +33,13 @@ def evaluate_model(
 
     rows = []
     all_recs = []
+    all_relevant = []
     for user_id in users:
         rec_df = model.recommend(user_id, k=k, exclude_seen=True)
         recs = rec_df["movieId"].astype(int).tolist()
         all_recs.append(recs)
         truth = relevant[user_id]
+        all_relevant.append(truth)
         rows.append(
             {
                 "precision": precision_at_k(recs, truth, k),
@@ -53,6 +57,8 @@ def evaluate_model(
             "recall_at_k": 0.0,
             "ndcg_at_k": 0.0,
             "hit_rate_at_k": 0.0,
+            "map_at_k": 0.0,
+            "mrr_at_k": 0.0,
             "coverage": 0.0,
             "diversity": 0.0,
             "evaluated_users": 0,
@@ -65,6 +71,8 @@ def evaluate_model(
         "recall_at_k": df["recall"].mean(),
         "ndcg_at_k": df["ndcg"].mean(),
         "hit_rate_at_k": df["hit_rate"].mean(),
+        "map_at_k": mean_average_precision_at_k(all_recs, all_relevant, k),
+        "mrr_at_k": mean_reciprocal_rank(all_recs, all_relevant, k),
         "coverage": coverage(all_recs, features.movies["movieId"].nunique()),
         "diversity": df["diversity"].mean(),
         "evaluated_users": len(users),

@@ -1,0 +1,16 @@
+{
+  "hybrid": {
+    "cf_weight": 0.0,
+    "content_weight": 0.7000000000000001,
+    "popularity_weight": 0.30000000000000004,
+    "best_ndcg": 0.7103099178571526
+  },
+  "user_cf": {
+    "n_neighbors": 5,
+    "best_ndcg": 0.14355885269113103
+  },
+  "svd": {
+    "n_components": 5,
+    "best_ndcg": 0.29136765389688796
+  }
+}
