@@ -7,6 +7,7 @@ This project is an MVP implementation of a MovieLens recommendation system that 
 ```text
 data/raw/                 raw MovieLens files, not committed
 data/processed/           generated cleaned data and features
+docs/                     project documents and unrelated reference documents
 src/data/                 download, loading, preprocessing, feature engineering
 src/models/               popularity, user CF, item CF, SVD, content, hybrid, cold start
 src/evaluation/           Precision@K, Recall@K, NDCG@K, HitRate, Coverage, Diversity
