@@ -1,0 +1,19 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.streamlit/
+
+# Keep raw MovieLens data local. README files are intentionally tracked.
+data/raw/ml-latest-small/
+data/raw/ml-32m/
+data/raw/ml-*/
+data/raw/*.zip
+
+# Generated artifacts can be reproduced by main.py.
+reports/*.csv
+reports/*.md
+reports/*.png
+!reports/README.md
+data/processed/*.csv
+!data/processed/README.md
